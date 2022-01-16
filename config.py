@@ -1,0 +1,5 @@
+N2C_DIR = "data/n2c_training"
+OUTPUT_DIR = "data/intermediate"
+COLUMN_ID = "sample_id"
+COLUMN_RAW = "raw"
+COLUMN_ANNOTATED = "annotated"
