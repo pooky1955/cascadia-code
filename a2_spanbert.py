@@ -8,7 +8,8 @@ from nltk.tokenize import sent_tokenize
 from config import OUTPUT_DIR, MODEL_PATH, BATCH_SIZE, ADVERSE_EVENT_TAG, DRUG_EVENT_TAG
 from os.path import join as pjoin
 from io import StringIO
-from util import TimeIt, chunkify
+from tqdm import tqdm
+from util import TimeIt, chunkify, save_pickle
 
 # transformers
 from transformers import AutoTokenizer, AutoModelForTokenClassification
@@ -38,7 +39,7 @@ def load_csv(path="n2c2.csv", directory=OUTPUT_DIR):
 
 
 def ner_inference(ner, text, batch_size=BATCH_SIZE):
-    return [output for batch in ner(stream_raw_sentences(text), batch_size=batch_size) for output in batch ]
+    return [output for batch in ner(stream_raw_sentences(text), batch_size=batch_size) for output in batch]
 
 
 def load_entry(df, index):
@@ -50,11 +51,17 @@ def load_entry(df, index):
         row['annotated']), sep='\t', header=None, names=['type', 'name', 'value'])
     return MimicNote(sample_id, raw_text, annotated_tsv)
 
+def split_sentence(sentence):
+    if len(sentence) > 512:
+        return sentence.split('\n')
+    else:
+        return [sentence]
 
 def stream_raw_sentences(text):
     '''Creates a generator of sentences to be fed to hf's models. along with batching + GPU , should yield significant speedup'''
     # return [''.join(sentences) for sentences in chunkify(sent_tokenize(text),SENTENCE_CHUNK_SIZE)]
-    return sent_tokenize(text)
+    sentences = sent_tokenize(text)
+    return [splitted for sentence in sentences for splitted in split_sentence(sentence)]
 
 
 def verify_sub_words_are_consecutive(stack):
@@ -63,7 +70,8 @@ def verify_sub_words_are_consecutive(stack):
         assert reduce(lambda holds_true_prev, curr_pair: holds_true_prev and (
             curr_pair[0] + 1 == curr_pair[1]), zip(indices, indices[1:]), True), "Not consecutive!"
     except AssertionError:
-        import ipdb; ipdb.set_trace()
+        import ipdb
+        ipdb.set_trace()
 
 
 def word_accumulator_fn(info_dict: Dict[str, List], curr_tok):
@@ -101,12 +109,11 @@ def split_one_stack(stack):
         else:
             current_partition.append(el)
         current_ind = el['index']
-    
+
     if len(current_partition) != 0:
         partitions.append(current_partition)
-    
-    return partitions
 
+    return partitions
 
 
 def split_stacks(stacks):
@@ -127,7 +134,8 @@ def get_tokens_from_ner_specific(raw_outputs, entity_type):
         all_stacks = word_stack['word_list']
     except Exception as e:
         print("exception:", str(e))
-        import ipdb; ipdb.set_trace()
+        import ipdb
+        ipdb.set_trace()
 
     if len(word_stack['curr_stack']) > 0:
         all_stacks.append(word_stack['curr_stack'])
@@ -143,10 +151,9 @@ def get_tokens_from_ner(raw_outputs, entity_list=['ADR', 'DRUG']):
 
 def extract_info(text, ner, batch_size=BATCH_SIZE):
     '''Extracts Adverse Events and Drug names given a text (using batching and GPU)'''
-    with TimeIt("HF's NER"):
-        ner_results = ner_inference(ner, text, batch_size=batch_size)
+    # with TimeIt("HF's NER"):
+    ner_results = ner_inference(ner, text, batch_size=batch_size)
     return get_tokens_from_ner(ner_results)
-
 
 
 def extract_entities(text, ner, batch_size=BATCH_SIZE):
@@ -179,10 +186,12 @@ def extract_drug_names_truth(annotated_tsv):
 def extract_adv_names_truth(annotated_tsv):
     return [row['value'].lower() for _, row in annotated_tsv.iterrows() if is_adv(row)]
 
-def select_words_by_thresh(extracted_entities,filter_fn):
-    return [term for term , scores in extracted_entities if filter_fn(scores)] 
 
-def observe_differences(pred_set,true_set):
+def select_words_by_thresh(extracted_entities, filter_fn):
+    return [term for term, scores in extracted_entities if filter_fn(scores)]
+
+
+def observe_differences(pred_set, true_set):
     print(f"Intersection:")
     print(pred_set.intersection(true_set))
     print(f"Extra in Preds:")
@@ -190,6 +199,20 @@ def observe_differences(pred_set,true_set):
     print(f"Missed in Preds:")
     print(true_set.difference(pred_set))
 
+
+if __name__ == "__main__":
+    with TimeIt("Loading CSV dataset"):
+        dataset = load_csv()
+    with TimeIt("Loading NER model"):
+        ner = load_ner(use_gpu=True)
+    # go over each sample , load it and extract drugs/ adverse events
+    with TimeIt("Extracting All Entities"):
+        extracted_entities = {row['sample_id']: extract_entities(
+            row['raw'], ner) for i,row in tqdm(dataset.iterrows(), total=len(dataset))}
+    save_pickle(extracted_entities, 'extracted_entities.pickle')
+
+
+'''
 if __name__ == "__main__":
     with TimeIt("Loading CSV dataset"): dataset = load_csv()
     with TimeIt("Loading NER model"): ner = load_ner(use_gpu=True)
@@ -199,7 +222,7 @@ if __name__ == "__main__":
     annotated_tsv = sample_entry.annotated_tsv
 
     with TimeIt("performing NER"): r_pred_drugs, r_pred_advs = extract_entities(raw_text,ner)
-    score_fn = lambda scores : scores.mean() > 0.7
+    score_fn = lambda scores : scores.mean() > 0.8
     pred_drugs = select_words_by_thresh(r_pred_drugs,score_fn)
     pred_advs = select_words_by_thresh(r_pred_advs,score_fn)
     
@@ -209,6 +232,4 @@ if __name__ == "__main__":
     pred_drugs_set, pred_advs_set, true_drugs_set, true_advs_set = map(set,[pred_drugs,pred_advs,true_drugs,true_advs])
     observe_differences(pred_drugs_set,true_drugs_set)
     observe_differences(pred_advs_set,true_advs_set)
-
-    
-
+'''
