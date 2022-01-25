@@ -1,4 +1,3 @@
-from os.path import expanduser
 N2C_DIR = "data/n2c_training"
 OUTPUT_DIR = "data/intermediate"
 COLUMN_ID = "sample_id"
@@ -9,7 +8,12 @@ BATCH_SIZE = 1
 ADVERSE_EVENT_TAG = "ADR"
 DRUG_EVENT_TAG = "DRUG"
 MAX_LENGTH = 512
-SQLITE_PATH = expanduser("~/Documents/RxNorm_full_01032022/rxnorm.db")
-MEDDRA_CSV_PATH = "data/intermediate/adverse_drugs.csv"
+SQLITE_PATH = "data/rxnorm/rxnorm.db"
+MEDDRA_CSV_PATH = "data/intermediate/sider_processed.csv"
 RXNAV_PATH = "rxnav.pickle"
 NDC_MAPPING_PATH = "ndc_mapping.pickle"
+MIMIC_NOTES_PATH = "data/mimic/notes.csv"
+MIMIC_NOTES_PICKLE_OUTPUT_PATH = "data/intermediate/notes.pickle"
+MIMIC_PRESCRIPTION_PATH = "data/mimic/prescriptions.csv"
+MIMIC_NOTES_PICKLE_SHUFFLED = "data/intermediate/notes_shuffled.pickle"
+NER_OUTPUT_PATH = "data/output"
