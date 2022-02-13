@@ -1,4 +1,5 @@
 from functools import reduce
+import re
 from select import select
 from typing import List, Dict
 import pandas as pd
@@ -47,8 +48,17 @@ def load_entry(df, index):
     row = df.iloc[index]
     sample_id = row['sample_id']
     raw_text = row['raw']
-    annotated_tsv = pd.read_csv(StringIO(
-        row['annotated']), sep='\t', header=None, names=['type', 'name', 'value'])
+    clean_content = re.sub('(?<!^)"(?!,")(?<!,")(?!$)', '\\"',row['annotated'], flags=re.M)
+    try:
+        try:
+            annotated_tsv = pd.read_csv(StringIO(
+                clean_content), sep='\t', header=None, names=['type', 'name', 'value'])
+        except:
+            annotated_tsv = pd.read_csv(StringIO(
+                row['annotated']), sep='\t', header=None, names=['type', 'name', 'value'],engine='python')
+    except:
+        import ipdb; ipdb.set_trace() 
+
     return MimicNote(sample_id, raw_text, annotated_tsv)
 
 def split_sentence(sentence):

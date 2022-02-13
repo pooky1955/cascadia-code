@@ -37,3 +37,8 @@ all_dirs = list(read_annotated_dir())
 save_pickle(all_dirs, "data.pickle")
 pd.DataFrame(all_dirs).to_csv(pjoin(OUTPUT_DIR, "n2c2.csv"))
 print("saved :)")
+
+all_dirs = list(read_annotated_dir('data/n2c_test/test'))
+save_pickle(all_dirs, "data_test.pickle")
+pd.DataFrame(all_dirs).to_csv(pjoin(OUTPUT_DIR, "n2c2_test.csv"))
+print("saved :)")

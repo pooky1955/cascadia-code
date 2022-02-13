@@ -216,3 +216,6 @@ tags
 data/
 *.pickle
 *.csv
+
+refs/
+slides/
